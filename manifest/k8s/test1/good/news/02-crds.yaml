@@ -1,0 +1,796 @@
+# argocd/02-crds.yaml
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: applications.argoproj.io
+  labels:
+    app.kubernetes.io/name: applications.argoproj.io
+    app.kubernetes.io/part-of: argocd
+spec:
+  group: argoproj.io
+  names:
+    kind: Application
+    listKind: ApplicationList
+    plural: applications
+    singular: application
+    shortNames:
+    - app
+    - apps
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    # Essential: Additional printer columns for kubectl output
+    additionalPrinterColumns:
+    - jsonPath: .status.sync.status
+      name: Sync Status
+      type: string
+    - jsonPath: .status.health.status
+      name: Health Status
+      type: string
+    - jsonPath: .status.sync.revision
+      name: Revision
+      priority: 10
+      type: string
+    - jsonPath: .spec.project
+      name: Project
+      priority: 10
+      type: string
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            required:
+            - project
+            - source
+            - destination
+            properties:
+              project:
+                type: string
+                default: default
+              source:
+                type: object
+                required:
+                - repoURL
+                properties:
+                  repoURL:
+                    type: string
+                  path:
+                    type: string
+                  targetRevision:
+                    type: string
+                    default: HEAD
+                  chart:
+                    type: string
+                  helm:
+                    type: object
+                    properties:
+                      valueFiles:
+                        type: array
+                        items:
+                          type: string
+                      parameters:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                            value:
+                              type: string
+                      values:
+                        type: string
+                  kustomize:
+                    type: object
+                    properties:
+                      namePrefix:
+                        type: string
+                      nameSuffix:
+                        type: string
+                      images:
+                        type: array
+                        items:
+                          type: string
+                      commonLabels:
+                        type: object
+                        additionalProperties:
+                          type: string
+                  directory:
+                    type: object
+                    properties:
+                      recurse:
+                        type: boolean
+                      jsonnet:
+                        type: object
+                        properties:
+                          extVars:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                                value:
+                                  type: string
+                                code:
+                                  type: boolean
+                          tlas:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                                value:
+                                  type: string
+                                code:
+                                  type: boolean
+              destination:
+                type: object
+                required:
+                - server
+                - namespace
+                properties:
+                  server:
+                    type: string
+                  namespace:
+                    type: string
+                  name:
+                    type: string
+              syncPolicy:
+                type: object
+                properties:
+                  automated:
+                    type: object
+                    properties:
+                      prune:
+                        type: boolean
+                      selfHeal:
+                        type: boolean
+                      allowEmpty:
+                        type: boolean
+                  syncOptions:
+                    type: array
+                    items:
+                      type: string
+                  retry:
+                    type: object
+                    properties:
+                      limit:
+                        type: integer
+                      backoff:
+                        type: object
+                        properties:
+                          duration:
+                            type: string
+                          factor:
+                            type: integer
+                          maxDuration:
+                            type: string
+              ignoreDifferences:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    group:
+                      type: string
+                    kind:
+                      type: string
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                    jsonPointers:
+                      type: array
+                      items:
+                        type: string
+                    jqPathExpressions:
+                      type: array
+                      items:
+                        type: string
+              info:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    value:
+                      type: string
+              revisionHistoryLimit:
+                type: integer
+          status:
+            type: object
+            properties:
+              sync:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  comparedTo:
+                    type: object
+                    properties:
+                      source:
+                        type: object
+                      destination:
+                        type: object
+                  revision:
+                    type: string
+                  revisions:
+                    type: array
+                    items:
+                      type: string
+              health:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+              history:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    revision:
+                      type: string
+                    deployedAt:
+                      type: string
+                    id:
+                      type: integer
+                    source:
+                      type: object
+              conditions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                    message:
+                      type: string
+                    lastTransitionTime:
+                      type: string
+              reconciledAt:
+                type: string
+              observedGeneration:
+                type: integer
+              operationState:
+                type: object
+                properties:
+                  operation:
+                    type: object
+                  phase:
+                    type: string
+                  message:
+                    type: string
+                  syncResult:
+                    type: object
+                    properties:
+                      resources:
+                        type: array
+                        items:
+                          type: object
+                      revision:
+                        type: string
+                      source:
+                        type: object
+                  startedAt:
+                    type: string
+                  finishedAt:
+                    type: string
+              summary:
+                type: object
+                properties:
+                  externalURLs:
+                    type: array
+                    items:
+                      type: string
+                  images:
+                    type: array
+                    items:
+                      type: string
+              resources:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    version:
+                      type: string
+                    kind:
+                      type: string
+                    namespace:
+                      type: string
+                    name:
+                      type: string
+                    status:
+                      type: string
+                    health:
+                      type: object
+                      properties:
+                        status:
+                          type: string
+                        message:
+                          type: string
+                    group:
+                      type: string
+                    hookPhase:
+                      type: string
+                    syncWave:
+                      type: integer
+    # Essential: Status subresource for proper status handling
+    subresources:
+      status: {}
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: appprojects.argoproj.io
+  labels:
+    app.kubernetes.io/name: appprojects.argoproj.io
+    app.kubernetes.io/part-of: argocd
+spec:
+  group: argoproj.io
+  names:
+    kind: AppProject
+    listKind: AppProjectList
+    plural: appprojects
+    singular: appproject
+    shortNames:
+    - appproj
+    - appprojs
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              description:
+                type: string
+              sourceRepos:
+                type: array
+                items:
+                  type: string
+              sourceNamespaces:
+                type: array
+                items:
+                  type: string
+              destinations:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    namespace:
+                      type: string
+                    server:
+                      type: string
+                    name:
+                      type: string
+              clusterResourceWhitelist:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    group:
+                      type: string
+                    kind:
+                      type: string
+              clusterResourceBlacklist:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    group:
+                      type: string
+                    kind:
+                      type: string
+              namespaceResourceWhitelist:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    group:
+                      type: string
+                    kind:
+                      type: string
+              namespaceResourceBlacklist:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    group:
+                      type: string
+                    kind:
+                      type: string
+              roles:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    description:
+                      type: string
+                    policies:
+                      type: array
+                      items:
+                        type: string
+                    groups:
+                      type: array
+                      items:
+                        type: string
+                    jwtTokens:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          iat:
+                            type: integer
+                          exp:
+                            type: integer
+                          id:
+                            type: string
+              syncWindows:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    kind:
+                      type: string
+                    schedule:
+                      type: string
+                    duration:
+                      type: string
+                    applications:
+                      type: array
+                      items:
+                        type: string
+                    manualSync:
+                      type: boolean
+                    clusters:
+                      type: array
+                      items:
+                        type: string
+                    namespaces:
+                      type: array
+                      items:
+                        type: string
+                    timeZone:
+                      type: string
+              signatureKeys:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    keyID:
+                      type: string
+              permitOnlyProjectScopedClusters:
+                type: boolean
+          status:
+            type: object
+            properties:
+              jwtTokensByRole:
+                type: object
+                additionalProperties:
+                  type: object
+                  properties:
+                    items:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          iat:
+                            type: integer
+                          exp:
+                            type: integer
+                          id:
+                            type: string
+    subresources:
+      status: {}
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: applicationsets.argoproj.io
+  labels:
+    app.kubernetes.io/name: applicationsets.argoproj.io
+    app.kubernetes.io/part-of: argocd
+spec:
+  group: argoproj.io
+  names:
+    kind: ApplicationSet
+    listKind: ApplicationSetList
+    plural: applicationsets
+    singular: applicationset
+    shortNames:
+    - appset
+    - appsets
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            required:
+            - generators
+            - template
+            properties:
+              generators:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    list:
+                      type: object
+                      properties:
+                        elements:
+                          type: array
+                          items:
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                        elementsYaml:
+                          type: string
+                    clusters:
+                      type: object
+                      properties:
+                        selector:
+                          type: object
+                          properties:
+                            matchLabels:
+                              type: object
+                              additionalProperties:
+                                type: string
+                            matchExpressions:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  key:
+                                    type: string
+                                  operator:
+                                    type: string
+                                  values:
+                                    type: array
+                                    items:
+                                      type: string
+                        template:
+                          type: object
+                          properties:
+                            metadata:
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                                namespace:
+                                  type: string
+                                labels:
+                                  type: object
+                                  additionalProperties:
+                                    type: string
+                                annotations:
+                                  type: object
+                                  additionalProperties:
+                                    type: string
+                            spec:
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+                        values:
+                          type: object
+                          additionalProperties:
+                            type: string
+                    git:
+                      type: object
+                      properties:
+                        repoURL:
+                          type: string
+                        revision:
+                          type: string
+                        directories:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              path:
+                                type: string
+                              exclude:
+                                type: boolean
+                        files:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              path:
+                                type: string
+                        template:
+                          type: object
+                          properties:
+                            metadata:
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                                namespace:
+                                  type: string
+                                labels:
+                                  type: object
+                                  additionalProperties:
+                                    type: string
+                                annotations:
+                                  type: object
+                                  additionalProperties:
+                                    type: string
+                            spec:
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+                        values:
+                          type: object
+                          additionalProperties:
+                            type: string
+                    matrix:
+                      type: object
+                      properties:
+                        generators:
+                          type: array
+                          items:
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                        template:
+                          type: object
+                          properties:
+                            metadata:
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                                namespace:
+                                  type: string
+                                labels:
+                                  type: object
+                                  additionalProperties:
+                                    type: string
+                                annotations:
+                                  type: object
+                                  additionalProperties:
+                                    type: string
+                            spec:
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+              template:
+                type: object
+                required:
+                - metadata
+                - spec
+                properties:
+                  metadata:
+                    type: object
+                    required:
+                    - name
+                    properties:
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                      labels:
+                        type: object
+                        additionalProperties:
+                          type: string
+                      annotations:
+                        type: object
+                        additionalProperties:
+                          type: string
+                      finalizers:
+                        type: array
+                        items:
+                          type: string
+                  spec:
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+              syncPolicy:
+                type: object
+                properties:
+                  preserveResourcesOnDeletion:
+                    type: boolean
+                  applicationsSync:
+                    type: string
+                    enum:
+                    - create-only
+                    - create-update
+                    - create-delete
+                    - sync
+              strategy:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    enum:
+                    - AllAtOnce
+                    - RollingSync
+                  rollingSync:
+                    type: object
+                    properties:
+                      steps:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            matchExpressions:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  key:
+                                    type: string
+                                  operator:
+                                    type: string
+                                  values:
+                                    type: array
+                                    items:
+                                      type: string
+                            maxUpdate:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              x-kubernetes-int-or-string: true
+              goTemplate:
+                type: boolean
+              goTemplateOptions:
+                type: array
+                items:
+                  type: string
+          status:
+            type: object
+            properties:
+              conditions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                    status:
+                      type: string
+                    lastTransitionTime:
+                      type: string
+                    reason:
+                      type: string
+                    message:
+                      type: string
+              applicationStatus:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    application:
+                      type: string
+                    message:
+                      type: string
+                    status:
+                      type: string
+                    step:
+                      type: string
+                    targetRevisions:
+                      type: array
+                      items:
+                        type: string
+    subresources:
+      status: {}

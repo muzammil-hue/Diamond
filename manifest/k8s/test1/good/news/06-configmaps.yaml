@@ -1,0 +1,355 @@
+# argocd/06-configmaps.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-cm
+    app.kubernetes.io/part-of: argocd
+    app.kubernetes.io/component: server
+data:
+  # Application configuration
+  application.instanceLabelKey: argocd.argoproj.io/instance
+  
+  # Server configuration
+  server.rbac.log.enforce.enable: "true"
+  policy.default: role:readonly
+  
+  # Repository configuration (will be populated by deploy script)
+  repositories: |
+    []
+  
+  # Resource customizations
+  resource.customizations.health.argoproj.io_Application: |
+    hs = {}
+    hs.status = "Progressing"
+    hs.message = ""
+    if obj.status ~= nil then
+      if obj.status.health ~= nil then
+        hs.status = obj.status.health.status
+        if obj.status.health.message ~= nil then
+          hs.message = obj.status.health.message
+        end
+      end
+    end
+    return hs
+
+  # Kustomize options
+  kustomize.buildOptions: --load-restrictor LoadRestrictionsNone
+  
+  # Timeout settings
+  timeout.hard.reconciliation: 30s
+  timeout.reconciliation: 180s
+  
+  # URL configuration (will be set by deploy script)
+  url: https://argocd.yourdomain.com
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cmd-params-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-cmd-params-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  server.insecure: "true"
+  server.grpc.web: "true"
+  server.enable.proxy.extension: "true"
+
+  timeout.reconciliation: "180s"
+  reposerver.log.format: "text"
+  reposerver.log.level: "info"
+  reposerver.parallelism.limit: "10"
+  reposerver.disable.tls: "false"
+  reposerver.repo.cache.expiration: "24h"
+  reposerver.max.combined.directory.manifests.size: "10M"
+
+  # ApplicationSet controller
+  applicationsetcontroller.enable.leader.election: "false"
+  applicationsetcontroller.policy: "sync"
+  applicationsetcontroller.enable.policy.override: "false"
+  applicationsetcontroller.debug: "false"
+  applicationsetcontroller.log.format: "text"
+  applicationsetcontroller.log.level: "info"
+
+  # Notifications controller
+  notificationscontroller.log.format: "text"
+  notificationscontroller.log.level: "info"
+
+  # Global settings
+  application.namespaces: "argocd"
+  repo.server: "argocd-repo-server:8081"
+  server.dex.server: "http://argocd-dex-server:5556"
+
+  # Optional but referenced
+  server.basehref: ""
+  server.rootpath: ""
+  server.log.format: "text"
+  server.log.level: "info"
+  server.disable.auth: "false"
+  server.grpc.web.root.path: ""
+  otlp.address: ""
+
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-rbac-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-rbac-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  policy.default: role:readonly
+  policy.csv: |
+    # Admin role - full access
+    p, role:admin, applications, *, */*, allow
+    p, role:admin, clusters, *, *, allow
+    p, role:admin, repositories, *, *, allow
+    p, role:admin, certificates, *, *, allow
+    p, role:admin, projects, *, *, allow
+    p, role:admin, accounts, *, *, allow
+    p, role:admin, gpgkeys, *, *, allow
+    
+    # Developer role - limited access
+    p, role:developer, applications, get, */*, allow
+    p, role:developer, applications, sync, */*, allow
+    p, role:developer, applications, action/*, */*, allow
+    p, role:developer, repositories, get, *, allow
+    p, role:developer, clusters, get, *, allow
+    p, role:developer, projects, get, *, allow
+    
+    # Read-only role
+    p, role:readonly, applications, get, */*, allow
+    p, role:readonly, repositories, get, *, allow
+    p, role:readonly, clusters, get, *, allow
+    p, role:readonly, projects, get, *, allow
+    
+    # User assignments (will be updated by deploy script)
+    g, admin@yourdomain.com, role:admin
+    g, argocd-admins, role:admin
+    g, argocd-developers, role:developer
+    g, argocd-readonly, role:readonly
+
+  scopes: "[groups, email]"
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-tls-certs-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-tls-certs-cm
+    app.kubernetes.io/part-of: argocd
+
+
+# Additional ConfigMaps needed by the deployments
+# Add these to your 06-configmaps.yaml file
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-ssh-known-hosts-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-ssh-known-hosts-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  ssh_known_hosts: |
+    # GitHub
+    github.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg=
+    github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl
+    github.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCj7ndNxQowgcQnjshcLrqPEiiphnt+VTTvDP6mHBL9j1aNUkY4Ue1gvwnGLVlOhGeYrnZaMgRK6+PKCUXaDbC7qtbW8gIkhL7aGCsOr/C56SJMy/BCZfxd1nWzAOxSDPgVsmerOBYfNqltV9/hWCqBywINIR+5dIg6JTJ72pcEpEjcYgXkE2YEFXV1JHnsKgbLWNlhScqb2UmyRkQyytRLtL+38TGxkxCflmO+5Z8CSSNY7GidjMIZ7Q4zMjA2n1nGrlTDkzwDCsw+wqFPGQA179cnfGWOWRVruj16z6XyvxvjJwbz0wQZ75XK5tKSb7FNyeIEs4TT4jk+S4dhPeAUC5y+bDYirYgM4GC7uEnztnZyaVWQ7B381AK4Qdrwt51ZqExKbQpTUNn+EjqoTwvqNj4kqx5QUCI0ThS/YkOxJCXmPUWZbhjpCg56i+2aB6CmK2JGhn57K5mj0MNdBXA4/WnwH6XoPWJzK5Nyu2zB3nAZp+S5hpQs+p1vN1/wsjk=
+    
+    # GitLab
+    gitlab.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBFSMqzJeV9rUzU4kWitGjeR4PWSa29SPqJ1fVkhtj3Hw9xjLVXVYrU9QlYWrOLXBpQ6KWjbjTDTdDkoohFzgbEY=
+    gitlab.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAfuCHKVTjquxvt6CM6tdG4SLp1Btn/nOeHHE5UOzRdf
+    gitlab.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCsj2bNKTBSpIYDEGk9KxsGh3mySTRgMtXL583qmBpzeQ+jqCMRgBqB98u3z++J1sKlXHWfM9dyhSevkMwSbhoR8XIq/U0tCNyokEi/ueaBMCvbcTHhO7k0VzdUHkMmWM4mYwlCZu4+0xH8t/yTGpXMg9sNsS1Xy5xNcJ8FJ0RHhzaJLKnFUyZaBKDg/7yfOTDPSJBSCRTHYA1M=
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-dex-server-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-dex-server-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  config.yaml: |
+    issuer: http://argocd-dex-server:5556/dex
+    storage:
+      type: memory
+    web:
+      http: 0.0.0.0:5556
+    logger:
+      level: "debug"
+      format: text
+    grpc:
+      addr: 0.0.0.0:5557
+    connectors:
+    - type: google
+      id: google
+      name: google
+      config:
+        issuer: https://accounts.google.com
+        clientID: YOUR_GOOGLE_CLIENT_ID
+        clientSecret:  YOUR_GOOGLE_CLIENT_SECRET
+        redirectURI: http://argocd-dex-server:5556/dex/callback
+        hostedDomains:
+        - yourdomain.com
+    staticClients:
+    - id: argo-cd
+      redirectURIs:
+      - https://argocd.yourdomain.com/auth/callback
+      name: Argo CD
+      secret: YOUR_ARGOCD_CLIENT_SECRET
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-gpg-keys-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-gpg-keys-cm
+    app.kubernetes.io/part-of: argocd
+data: {}
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-notifications-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-notifications-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  service.slack: |
+    token: $slack-token
+    username: ArgoCD
+    icon: ":argo:"
+
+  service.email: |
+    host: smtp.gmail.com
+    port: 587
+    from: argocd@yourdomain.com
+    username: $email-username
+    password: $email-password
+
+  template.app-deployed: |
+    email:
+      subject: Application {{.app.metadata.name}} is now running new version.
+      body: |
+        {{if eq .serviceType "slack"}}:white_check_mark:{{end}} Application {{.app.metadata.name}} is now running new version of {{.app.status.sync.revision}}.
+    slack:
+      attachments: |
+        [{
+          "title": "{{ .app.metadata.name}}",
+          "title_link":"{{.context.argocdUrl}}/applications/{{.app.metadata.name}}",
+          "color": "#18be52",
+          "fields": [
+          {
+            "title": "Sync Status",
+            "value": "{{.app.status.sync.status}}",
+            "short": true
+          },
+          {
+            "title": "Repository",
+            "value": "{{.app.spec.source.repoURL}}",
+            "short": true
+          },
+          {
+            "title": "Revision",
+            "value": "{{.app.status.sync.revision}}",
+            "short": true
+          }
+          ]
+        }]
+
+  template.app-health-degraded: |
+    email:
+      subject: Application {{.app.metadata.name}} has degraded.
+      body: |
+        Application {{.app.metadata.name}} has degraded.
+        Application details: {{.context.argocdUrl}}/applications/{{.app.metadata.name}}.
+    slack:
+      attachments: |
+        [{
+          "title": "{{ .app.metadata.name}}",
+          "title_link": "{{.context.argocdUrl}}/applications/{{.app.metadata.name}}",
+          "color": "#f4c430",
+          "fields": [
+          {
+            "title": "Health Status",
+            "value": "{{.app.status.health.status}}",
+            "short": true
+          },
+          {
+            "title": "Repository",
+            "value": "{{.app.spec.source.repoURL}}",
+            "short": true
+          }
+          ]
+        }]
+
+  template.app-sync-failed: |
+    email:
+      subject: Application {{.app.metadata.name}} sync failed.
+      body: |
+        {{if eq .serviceType "slack"}}:exclamation:{{end}} Application {{.app.metadata.name}} sync failed.
+        Application details: {{.context.argocdUrl}}/applications/{{.app.metadata.name}}.
+    slack:
+      attachments: |
+        [{
+          "title": "{{ .app.metadata.name}}",
+          "title_link":"{{.context.argocdUrl}}/applications/{{.app.metadata.name}}",
+          "color": "#E96D76",
+          "fields": [
+          {
+            "title": "Sync Status",
+            "value": "{{.app.status.sync.status}}",
+            "short": true
+          },
+          {
+            "title": "Repository",
+            "value": "{{.app.spec.source.repoURL}}",
+            "short": true
+          }
+          ]
+        }]
+
+  trigger.on-deployed: |
+    - description: Application is synced and healthy. Triggered once per commit.
+      oncePer: app.status.sync.revision
+      send:
+      - app-deployed
+      when: app.status.operationState.phase in ['Succeeded'] and app.status.health.status == 'Healthy'
+
+  trigger.on-health-degraded: |
+    - description: Application has degraded
+      send:
+      - app-health-degraded
+      when: app.status.health.status == 'Degraded'
+
+  trigger.on-sync-failed: |
+    - description: Application syncing has failed
+      send:
+      - app-sync-failed
+      when: app.status.operationState.phase in ['Error', 'Failed']
+
+  subscriptions: |
+    - recipients:
+      - slack:general
+      - email:admin@yourdomain.com
+      triggers:
+      - on-deployed
+      - on-health-degraded
+      - on-sync-failed
