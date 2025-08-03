@@ -1,0 +1,12 @@
+resources:
+  - 01-namespace.yaml
+  - 02-crds.yaml
+  - 03-serviceaccounts.yaml
+  - 04-clusterroles.yaml
+  - 05-clusterrolebindings.yaml
+  - 06-configmaps.yaml
+  - 07-secrets.yaml
+  - 08-services.yaml
+  - 09-deployments.yaml
+  - 10-networkpolicies.yaml
+  - roles_and_rolebindings.yaml
